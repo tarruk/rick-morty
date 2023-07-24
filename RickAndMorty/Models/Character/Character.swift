@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Character: Codable, Identifiable {
+struct Character: Codable {
   let id: Int?
   let name: String?
   let image: String?

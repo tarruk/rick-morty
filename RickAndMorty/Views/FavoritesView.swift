@@ -6,29 +6,31 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct FavoritesView: View {
   
-  @EnvironmentObject var service: RMService
-
+  @Query private var favorites: [CharacterViewModel]
+  @Environment(\.modelContext) private var context
+  
   var body: some View {
     NavigationView {
-      ScrollView(.vertical) {
-        VStack {
-          ForEach(service.favorites) { character in
-            CharacterView(
-              character: character,
-              type: .favorite
-            )
+      List {
+        ForEach(favorites) { character in
+          CharacterView(character: character)
+        }
+        .onDelete { indexes in
+          for index in indexes {
+            deleteFromFavorites(favorites[index])
           }
         }
-      }.task {
-        try? await service.fetchFavorites()
       }
       .navigationTitle("Favorites")
-      .redacted(reason:  service.isLoading ? .placeholder : [])
     }
-    
+  }
+  
+  func deleteFromFavorites(_ character: CharacterViewModel) {
+    context.delete(character)
   }
 }
 

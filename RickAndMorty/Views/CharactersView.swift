@@ -6,11 +6,14 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct CharactersView: View {
 
   @EnvironmentObject var service: RMService
-
+  @Environment(\.modelContext) private var context
+  @Query private var favorites: [CharacterViewModel]
+  
   var body: some View {
     NavigationView {
       ScrollView(.vertical) {
@@ -18,7 +21,9 @@ struct CharactersView: View {
           ForEach(service.characters) { character in
             CharacterView(
               character: character,
-              type: .normal
+              addToFavoritesButtonAction: {
+                addToFavorites(character)
+              }
             )
           }
         }
@@ -28,6 +33,13 @@ struct CharactersView: View {
       .navigationTitle("Rick & Morty")
       .redacted(reason:  service.isLoading ? .placeholder : [])
     }
+  }
+  
+  func addToFavorites(_ character: CharacterViewModel) {
+    guard favorites.filter({ $0.id == character.id }).first == nil else {
+      return
+    }
+    context.insert(character)
   }
 }
 

@@ -49,8 +49,8 @@ final class RMService: ObservableObject {
   private var favoritesPublisher = CurrentValueSubject<[Character], Never>([])
   @Published private(set) var favorites = [Character]()
   
-  private var charactersPublisher = CurrentValueSubject<[Character], Never>([])
-  @Published private(set) var characters = [Character]()
+  private var charactersPublisher = CurrentValueSubject<[CharacterViewModel], Never>([])
+  @Published private(set) var characters = [CharacterViewModel]()
   
   private var episodesPublisher = CurrentValueSubject<[Episode], Never>([])
   @Published private(set) var episodes = [Episode]()
@@ -132,7 +132,7 @@ final class RMService: ObservableObject {
     isLoadingPublisher.send(false)
     switch result {
     case .success(let charactersResponse):
-      charactersPublisher.send(charactersResponse.characters)
+      charactersPublisher.send(charactersResponse.characters.map{ CharacterViewModel(character: $0)})
     case .failure(let error):
       errorPublisher.send(error.localizedDescription)
     }

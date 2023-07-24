@@ -6,12 +6,14 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct rickandmortyApp: App {
     var body: some Scene {
         WindowGroup {
             HomeView()
+            .modelContainer(for: CharacterViewModel.self)
         }
     }
 }

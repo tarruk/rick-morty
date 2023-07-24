@@ -6,26 +6,13 @@
 //
 
 import SwiftUI
-
-enum CharacterType {
-  case favorite
-  case normal
-  
-  var buttonTitle: String {
-    switch self {
-    case .favorite:
-      return "Delete from favorites"
-    case .normal:
-      return "Add to favorites"
-    }
-  }
-}
+import SwiftData
 
 struct CharacterView: View {
 
   @EnvironmentObject var service: RMService
-  let character: Character
-  let type: CharacterType
+  let character: CharacterViewModel
+  var addToFavoritesButtonAction: (() -> Void)?
   
   var body: some View {
     HStack {
@@ -35,31 +22,26 @@ struct CharacterView: View {
       Text(character.name ?? "")
         .font(.headline)
       Spacer()
-      Button {
-        Task {
-          switch type {
-          case .normal:
-            try? await service.saveFavoriteCharacter(character)
-          case .favorite:
-            try? await service.deleteFavoriteCharacter(character)
+      if let addToFavoritesButtonAction {
+        Button {
+          Task {
+            addToFavoritesButtonAction()
           }
+        } label: {
+          Text("Add to favorites")
+            .font(.caption)
         }
-      } label: {
-        Text(type.buttonTitle)
-          .font(.caption)
       }
-
-      
     }.padding()
   }
 }
 
 struct CharacterView_Previews: PreviewProvider {
     static var previews: some View {
-      CharacterView(character: Character(
+      CharacterView(character: CharacterViewModel(character: Character(
         id: 0,
         name: "Rick",
         image: ""
-      ), type: .favorite)
+      )))
     }
 }
