@@ -9,29 +9,55 @@ import SwiftUI
 import SwiftData
 
 struct CharactersView: View {
-
-  @EnvironmentObject var service: RMService
+  
+  @Environment(\.rmService) private var service
+  
   @Environment(\.modelContext) private var context
   @Query private var favorites: [CharacterViewModel]
+  @State var characters: [CharacterViewModel] = []
+  @State var isLoading: Bool = false
   
   var body: some View {
     NavigationView {
       ScrollView(.vertical) {
-        VStack {
-          ForEach(service.characters) { character in
-            CharacterView(
-              character: character,
-              addToFavoritesButtonAction: {
-                addToFavorites(character)
-              }
-            )
+        LazyVStack {
+          ForEach(characters) { character in
+            if PlatformMonitor.shared.current == .ios {
+              CharacterView(character: character, addToFavoritesButtonAction: {
+                favoriteButtonWasPressed(character)
+              })
+            } else {
+              CharacterViewTV(character: character, addToFavoritesButtonAction: {
+                favoriteButtonWasPressed(character)
+              })
+            }
           }
         }
       }.task {
-        try? await service.fetchCharacters()
+        await fetchCharacters()
       }
       .navigationTitle("Rick & Morty")
-      .redacted(reason:  service.isLoading ? .placeholder : [])
+      .redacted(reason:  isLoading ? .placeholder : [])
+    }
+  }
+  
+  func fetchCharacters() async {
+    isLoading = true
+    let response = await service.fetchCharacters()
+    isLoading = false
+    switch response {
+    case .success(let characters):
+      self.characters = characters
+    case .failure(let error):
+      print(error.localizedDescription)
+    }
+  }
+  
+  func favoriteButtonWasPressed(_ character: CharacterViewModel) {
+    if let favorite = favorites.first(where: { $0.id == character.id }) {
+      removeFromFavorites(favorite)
+    } else {
+      addToFavorites(character)
     }
   }
   
@@ -40,6 +66,12 @@ struct CharactersView: View {
       return
     }
     context.insert(character)
+  }
+  
+  func removeFromFavorites(_ character: CharacterViewModel) {
+    if let charToDelete = favorites.first(where: { character.id == $0.id}) {
+      context.delete(charToDelete)
+    }
   }
 }
 

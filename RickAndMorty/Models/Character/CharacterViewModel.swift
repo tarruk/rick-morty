@@ -19,5 +19,4 @@ final class CharacterViewModel: Identifiable {
     self.name = character.name
     self.image = character.image
   }
-  
 }

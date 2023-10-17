@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import SwiftUI
 
 enum HTTPMethod: String {
   case GET
@@ -39,146 +40,99 @@ enum Endpoint: String {
   case addFavorite
 }
 
-final class RMService: ObservableObject {
-  
-  private var isLoadingPublisher = CurrentValueSubject<Bool, Never>(false)
-  @Published private(set) var isLoading: Bool = false
-  
-  var basePath: String = "https://rickandmortyapi.com/api/"
-  
-  private var favoritesPublisher = CurrentValueSubject<[Character], Never>([])
-  @Published private(set) var favorites = [Character]()
-  
-  private var charactersPublisher = CurrentValueSubject<[CharacterViewModel], Never>([])
-  @Published private(set) var characters = [CharacterViewModel]()
-  
-  private var episodesPublisher = CurrentValueSubject<[Episode], Never>([])
-  @Published private(set) var episodes = [Episode]()
-  
-  private var errorPublisher = CurrentValueSubject<String, Never>("")
-  @Published private(set) var errorMessage = ""
-  
-  init() {
-    
-    charactersPublisher
-      .receive(on: DispatchQueue.main)
-      .assign(to: &$characters)
-    
-    episodesPublisher
-      .receive(on: DispatchQueue.main)
-      .assign(to: &$episodes)
-    
-    favoritesPublisher
-      .receive(on: DispatchQueue.main)
-      .assign(to: &$favorites)
-    
-    isLoadingPublisher
-      .receive(on: DispatchQueue.main)
-      .assign(to: &$isLoading)
-    
-    errorPublisher
-      .receive(on: DispatchQueue.main)
-      .assign(to: &$errorMessage)
-  }
-  
-  private func fetch<T: Decodable>(type: T.Type, endpoint: Endpoint) async throws -> Result<T, Error> {
-    guard let url = URL(string: basePath + endpoint.rawValue) else {
-      return .failure(NetworkingError.badURL)
-    }
-    
-    var request = URLRequest(url: url)
-    request.setValue("*/*", forHTTPHeaderField: "Accept")
-  
-    let (data, response) = try await URLSession.shared.data(for: request)
-    guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-      return .failure(NetworkingError.badRequest )
-    }
-    
-    do {
-      let dataModel = try JSONDecoder().decode(T.self, from: data)
-      return .success(dataModel)
-    } catch let error {
-      return .failure(error)
-    }
+protocol RMServiceProtocol: ObservableObject {
+  func fetchCharacters() async -> Result<[CharacterViewModel], Error>
+  func fetchEpisodes() async -> Result<[Episode], Error>
+  func fetchFavorites() async -> Result<[Character], Error>
+}
 
-  }
+
+final class RMService: RMServiceProtocol {
   
-  private func send<T: Encodable>(object: T, method: HTTPMethod, endpoint: Endpoint) async throws -> Result<Bool,Error> {
-    guard
-      let url = URL(string: basePath+endpoint.rawValue) else {
-      return .failure(NetworkingError.badURL)
-    }
-    var request: URLRequest = URLRequest(url: url)
-    request.httpMethod = method.rawValue
-    
-    request.addValue(
-      MYMEType.JSON.rawValue,
-      forHTTPHeaderField: HTTPHeaders.contentType.rawValue
-    )
-    request.httpBody = try? JSONEncoder().encode(object)
-    
-    let (_, response) = try await URLSession.shared.data(for: request)
-    
-    guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-      return .failure(NetworkingError.badRequest)
-    }
-    
-    return .success(true)
-  }
+  private let client: APIClient
   
-  func fetchCharacters() async throws {
-    isLoadingPublisher.send(true)
-    let result = try await fetch(type: CharactersResponse.self, endpoint: .character)
-    isLoadingPublisher.send(false)
+  init(client: APIClient = APIClient()) {
+    self.client = client
+  }
+ 
+  func fetchCharacters() async -> Result<[CharacterViewModel], Error> {
+    let result = await client.fetch(type: CharactersResponse.self, endpoint: .character)
+    
     switch result {
     case .success(let charactersResponse):
-      charactersPublisher.send(charactersResponse.characters.map{ CharacterViewModel(character: $0)})
+      return .success(charactersResponse.characters.map {
+        CharacterViewModel(character: $0)
+      })
     case .failure(let error):
-      errorPublisher.send(error.localizedDescription)
+      return .failure(error)
     }
   }
   
-  func saveFavoriteCharacter(_ character: Character) async throws {
-    let result = try await send(object: character, method: .POST, endpoint: .addFavorite)
-    switch result {
-    case .success(_ ):
-      try await fetchFavorites()
-    case .failure(let error):
-      errorPublisher.send(error.localizedDescription)
-    }
-  }
-  
-  func deleteFavoriteCharacter(_ character: Character) async throws {
-    let result = try await send(object: character, method: .DELETE, endpoint: .deleteFavorite)
-    switch result {
-    case .success(_ ):
-      try await fetchFavorites()
-    case .failure(let error):
-      errorPublisher.send(error.localizedDescription)
-    }
-  }
-  
-  func fetchEpisodes() async throws {
-    isLoadingPublisher.send(true)
-   let result = try await fetch(type: EpisodesResponse.self, endpoint: .episode)
-    isLoadingPublisher.send(false)
+  func fetchEpisodes() async -> Result<[Episode], Error> {
+    let result = await client.fetch(type: EpisodesResponse.self, endpoint: .episode)
     switch result {
     case .success(let episodesResponse):
-      episodesPublisher.send(episodesResponse.episodes)
+      return .success(episodesResponse.episodes)
     case .failure(let error):
-      errorPublisher.send(error.localizedDescription)
+      return .failure(error)
     }
   }
   
-  func fetchFavorites() async throws {
-    isLoadingPublisher.send(true)
-    let result = try await fetch(type: [Character].self, endpoint: .favorites)
-    isLoadingPublisher.send(false)
+  func fetchFavorites() async -> Result<[Character], Error> {
+    let result = await client.fetch(type: [Character].self, endpoint: .favorites)
     switch result {
     case .success(let favorites):
-      favoritesPublisher.send(favorites)
+      return .success(favorites)
     case .failure(let error):
-      errorPublisher.send(error.localizedDescription)
+      return .failure(error)
     }
   }
 }
+
+final class RMServiceMock: RMServiceProtocol {
+  func fetchCharacters() async -> Result<[CharacterViewModel], Error> {
+    return .success([
+      CharacterViewModel(
+        character: Character(id: 0, name: "Pickle Rick", image: nil)
+      ),
+      CharacterViewModel(
+        character: Character(id: 1, name: "One eye Morty", image: nil)
+      ),
+      CharacterViewModel(
+        character: Character(id: 2, name: "Bodybuilder Jerry", image: nil)
+      )
+    ])
+  }
+  
+  func fetchEpisodes() async -> Result<[Episode], Error> {
+    return .success([])
+  }
+  
+  func fetchFavorites() async -> Result<[Character], Error> {
+    return .success([
+      Character(id: 1, name: "One eye Morty", image: nil),
+      Character(id: 2, name: "Bodybuilder Jerry", image: nil)
+    ])
+  }
+}
+
+struct RMServiceValue: EnvironmentKey {
+  static var defaultValue: any RMServiceProtocol = RMService()
+}
+
+struct RMServiceMockValue: EnvironmentKey {
+  static var defaultValue: any RMServiceProtocol = RMServiceMock()
+}
+
+extension EnvironmentValues {
+  var rmService: any RMServiceProtocol {
+    get { self[RMServiceValue.self] }
+    set { self[RMServiceValue.self] = newValue }
+  }
+  
+  var rmServiceMock: any RMServiceProtocol {
+    get { self[RMServiceMockValue.self] }
+    set { self[RMServiceMockValue.self] = newValue }
+  }
+}
+

@@ -8,21 +8,57 @@
 import SwiftUI
 
 struct EpisodesView: View {
-  @EnvironmentObject var service: RMService
+  @Environment(\.rmService) var service
+  @State var episodes: [Episode] = []
+  @State var isLoading: Bool = false
+  private let platformMonitor: PlatformMonitor
+  
+  init(
+    episodes: [Episode] = [],
+    isLoading: Bool = false,
+    platformMonitor: PlatformMonitor = .shared
+  ) {
+    self.episodes = episodes
+    self.isLoading = isLoading
+    self.platformMonitor = platformMonitor
+  }
   
   var body: some View {
-    List {
-      ForEach(service.episodes) { episode in
-        Text(episode.name ?? "")
-          .font(.headline)
-          .fontDesign(.monospaced)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding()
+    NavigationView {
+      List {
+        ForEach(episodes) { episode in
+          if let episodeName = episode.name {
+            Button {
+              // On row pressed
+            } label: {
+              Text(episodeName)
+                .font(.headline)
+                .fontDesign(.monospaced)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+            }
+          }
+         
+        }
+      }.task {
+        await fetchEpisodes()
       }
-    }.task {
-      try? await service.fetchEpisodes()
+      .redacted(reason: isLoading ? .placeholder : [])
+      .navigationTitle("Episodes View")
     }
-    .redacted(reason:  service.isLoading ? .placeholder : [])
+  }
+  
+  func fetchEpisodes() async {
+    isLoading = true
+    let response = await service.fetchEpisodes()
+    isLoading = false
+    
+    switch response {
+    case .success(let episodes):
+      self.episodes = episodes
+    case .failure(let error):
+      print(error.localizedDescription)
+    }
   }
 }
 

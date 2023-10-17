@@ -9,42 +9,33 @@ import SwiftUI
 
 struct HomeView: View {
   
-  @StateObject private var service = RMService()
+  var platformMonitor: PlatformMonitor = .shared
   
   var body: some View {
     TabView {
       CharactersView()
-        .environmentObject(service)
         .tabItem {
-          Image.charactersIcon
-            .renderingMode(.template)
-            .resizable()
-            .frame(maxWidth: 25, maxHeight: 25)
-            Text("Characters")
+          TabItemView(
+            image: .charactersIcon,
+            title: "Characters"
+          )
         }
       FavoritesView()
-        .environmentObject(service)
         .tabItem {
-          Image.favoritesIcon
-            .renderingMode(.template)
-            .resizable()
-            .frame(width: 25, height: 25)
-          Text("Favorites")
-            .font(.caption)
-            .foregroundColor(.black)
+          TabItemView(
+            image: .favoritesIcon,
+            title: "Favorites"
+          )
         }
       EpisodesView()
-        .environmentObject(service)
         .tabItem {
-          Image.episodesIcon
-            .renderingMode(.template)
-            .resizable()
-            .frame(width: 25, height: 25)
-          Text("Episodes")
-            .font(.caption)
-            .foregroundColor(.black)
+          TabItemView(
+            image: .episodesIcon,
+            title: "Episodes"
+          )
         }
-    }.accentColor(.blue)
+    }
+    .accentColor(platformMonitor.current == .ios ? .blue : .white)
   }
 }
 

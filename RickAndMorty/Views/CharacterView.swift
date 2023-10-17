@@ -10,15 +10,23 @@ import SwiftData
 
 struct CharacterView: View {
 
-  @EnvironmentObject var service: RMService
+  @Query var favorites: [CharacterViewModel]
+  @Environment(\.isPresented) var isPresented
+  @Environment(\.rmService) var service
+  
   let character: CharacterViewModel
   var addToFavoritesButtonAction: (() -> Void)?
+  var platformMonitor: PlatformMonitor = .shared
+  
+  @State var isFavorite: Bool = false
   
   var body: some View {
     HStack {
       LoadableImage(
         url: character.image ?? "",
-        imageDescription: character.name ?? "")
+        imageDescription: character.name ?? "",
+        type: .phone
+      )
       Text(character.name ?? "")
         .font(.headline)
       Spacer()
@@ -28,11 +36,18 @@ struct CharacterView: View {
             addToFavoritesButtonAction()
           }
         } label: {
-          Text("Add to favorites")
-            .font(.caption)
+          Image(systemName: isFavorite ? "heart.fill" : "heart")
+            .foregroundStyle(.red)
         }
       }
-    }.padding()
+    }
+    .onAppear {
+      isFavorite = favorites.contains(where: {$0.id == character.id})
+    }
+    .padding()
+    .onChange(of: favorites) { oldValue, newValue in
+      isFavorite = newValue.contains(where: {$0.id == character.id})
+    }
   }
 }
 
